@@ -204,7 +204,7 @@ function buildStructuredProcess(session) {
 
 function buildAssistantReply(state, session, canAsk = true) {
   if (state.missingRequired.length === 0) {
-    return "Die Pflichtbausteine sind ausreichend gefüllt. Ich kann die Struktur jetzt prüfen und daraus ein BPMN-Modell vorbereiten.";
+    return "Die Pflichtbausteine sind ausreichend gefüllt. Ich erstelle daraus jetzt automatisch das Prozessmodell.";
   }
 
   if (!canAsk) {

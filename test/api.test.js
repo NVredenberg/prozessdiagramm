@@ -9,6 +9,7 @@ process.env.HOST = "127.0.0.1";
 process.env.PORT = "0";
 
 const { server } = require("../src/server");
+const { config } = require("../src/config");
 
 test("API creates, validates and exports a process session", async (t) => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -18,6 +19,8 @@ test("API creates, validates and exports a process session", async (t) => {
 
   const health = await getJson(`${baseUrl}/health`);
   assert.equal(health.ok, true);
+  assert.equal(config.ollamaUrl, "http://localhost:11434");
+  assert.equal(JSON.stringify(health.ollama).includes("http://ollama:11434"), false);
 
   const favicon = await fetch(`${baseUrl}/favicon.ico`);
   assert.equal(favicon.status, 204);
@@ -27,6 +30,9 @@ test("API creates, validates and exports a process session", async (t) => {
     sourceText: "Der Prozess beginnt, wenn ein Antrag im Sekretariat eingeht. Zuerst prüft das Sekretariat die Unterlagen. Danach leitet das Sekretariat den Antrag an die Schulleitung weiter. Die Schulleitung prüft die Freigabe und genehmigt oder lehnt ab. Bei fehlenden Unterlagen fordert das Sekretariat eine Rückfrage an. Der Prozess endet mit einer dokumentierten Entscheidung. Verantwortlich: Sekretariat, Schulleitung."
   });
   assert.equal(created.profile, "bpmn-light");
+  assert.equal(created.hasBpmn, true);
+  assert.equal(created.validation.valid, true);
+  assert.match(created.messages.at(-1).content, /automatisch das Prozessmodell/);
 
   const structured = await postJson(`${baseUrl}/api/sessions/${created.id}/structure`, {});
   assert.equal(structured.validation.valid, true);

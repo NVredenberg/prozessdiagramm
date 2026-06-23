@@ -72,6 +72,7 @@ async function route(req, res) {
       profile: body.profile,
       maxQuestions: config.maxQuestions
     });
+    finalizeSessionIfReady(session);
     const state = analyzeSession(session);
     const saved = storage.writeSession(session);
     sendJson(res, 201, toClientSession(saved, state));
@@ -96,6 +97,7 @@ async function route(req, res) {
       }
       const session = storage.readSession(id);
       const updated = addUserMessage(session, body.content);
+      finalizeSessionIfReady(updated);
       const saved = storage.writeSession(updated);
       sendJson(res, 200, toClientSession(saved, analyzeSession(saved)));
       return;
@@ -164,10 +166,23 @@ function toClientSession(session, state) {
   };
 }
 
+function finalizeSessionIfReady(session) {
+  const state = analyzeSession(session);
+  if (state.missingRequired.length > 0) return session;
+
+  const structured = buildStructuredProcess(session);
+  const validation = validateStructuredProcess(structured);
+  session.structured = structured;
+  session.validation = validation;
+  session.bpmnXml = validation.valid ? generateBpmnXml(structured) : null;
+  session.status = validation.valid ? "diagram-ready" : "needs-clarification";
+  return session;
+}
+
 if (require.main === module) {
   server.listen(config.port, config.host, () => {
     console.log(`KI-Prozessmodellierung läuft auf http://${config.host}:${config.port}`);
   });
 }
 
-module.exports = { server, route };
+module.exports = { server, route, finalizeSessionIfReady };
