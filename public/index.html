@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KI-Prozessmodellierung</title>
   <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/vendor/bpmn-js/diagram-js.css">
+  <link rel="stylesheet" href="/vendor/bpmn-js/bpmn-js.css">
+  <link rel="stylesheet" href="/vendor/bpmn-js/bpmn-embedded.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -43,6 +46,7 @@
           <button id="validateBtn" class="button secondary" type="button" disabled>Prüfen</button>
           <button id="downloadBtn" class="button secondary" type="button" disabled>XML</button>
           <button id="printBtn" class="button primary" type="button" disabled>Druckansicht</button>
+          <button id="pdfBtn" class="button primary" type="button" disabled>PDF</button>
         </div>
       </header>
 
@@ -92,6 +96,7 @@
     </main>
   </div>
 
+  <script src="/vendor/bpmn-js/bpmn-modeler.production.min.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>

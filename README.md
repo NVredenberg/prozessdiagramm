@@ -8,16 +8,22 @@ Ein Diagramm wird nur erzeugt, wenn Start, Ablauf, Verantwortlichkeiten und Ende
 
 ## Enthalten
 
-- Node.js-Webdienst ohne externe Laufzeitabhängigkeiten
-- Statisches Frontend für Prozesseingabe, geführten Dialog, Pflichtblock-Status, Validierung und Diagramm-Vorschau
+- Node.js-Webdienst mit BPMN-Layout, grafischem Editor und PDF-Export
+- Statisches Frontend für Prozesseingabe, geführten Dialog, Pflichtblock-Status, Validierung und grafische BPMN-Bearbeitung mit `bpmn-js`
 - Healthcheck mit Ollama-Verbindungsstatus
 - Session-Speicherung als JSON im Datenverzeichnis
-- BPMN-2.0-XML-Generierung mit Lanes, Tasks, Start-/End-Event und optionalem Gateway
-- Druckansicht als Vorstufe für den späteren PDF-Export
+- BPMN-2.0-XML-Generierung mit Lanes, Tasks, Start-/End-Event, optionalem Gateway und automatischem Layout
+- Druckansicht und Puppeteer-basierter PDF-Export
 - Dockerfile und Docker-Compose-Service für das Schulnetz
 - ISO-25010-orientierte Qualitätsdokumentation
 
 ## Lokal starten
+
+Einmalig die Abhängigkeiten installieren:
+
+```powershell
+pnpm install
+```
 
 ```powershell
 node src/server.js
@@ -67,7 +73,4 @@ ENABLE_OLLAMA_EXTRACTION=true
 
 ## Nächste Ausbaustufen
 
-- `bpmn-js` im Frontend für grafische Bearbeitung einbinden
-- `bpmn-auto-layout` für komplexere automatische Layouts integrieren
-- Puppeteer-basierten PDF-Endpunkt ergänzen
 - Mehrbenutzerbetrieb, Login und Versionierung ergänzen

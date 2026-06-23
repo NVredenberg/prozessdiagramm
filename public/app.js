@@ -1,6 +1,10 @@
 const state = {
   session: null,
-  health: null
+  health: null,
+  bpmnModeler: null,
+  bpmnImportKey: null,
+  bpmnImportToken: 0,
+  bpmnDirty: false
 };
 
 const elements = {
@@ -14,6 +18,7 @@ const elements = {
   validateBtn: document.querySelector("#validateBtn"),
   downloadBtn: document.querySelector("#downloadBtn"),
   printBtn: document.querySelector("#printBtn"),
+  pdfBtn: document.querySelector("#pdfBtn"),
   systemState: document.querySelector("#systemState"),
   sessionLine: document.querySelector("#sessionLine"),
   validationSummary: document.querySelector("#validationSummary"),
@@ -81,14 +86,19 @@ elements.validateBtn.addEventListener("click", async () => {
   }
 });
 
-elements.downloadBtn.addEventListener("click", () => {
+elements.downloadBtn.addEventListener("click", async () => {
   if (!state.session?.hasBpmn) return;
-  window.location.href = `/api/sessions/${state.session.id}/bpmn`;
+  await downloadCurrentBpmn();
 });
 
 elements.printBtn.addEventListener("click", () => {
   if (!state.session?.validation?.valid) return;
   window.open(`/api/sessions/${state.session.id}/export.html`, "_blank", "noopener");
+});
+
+elements.pdfBtn.addEventListener("click", () => {
+  if (!state.session?.validation?.valid) return;
+  window.location.href = `/api/sessions/${state.session.id}/export.pdf`;
 });
 
 async function boot() {
@@ -176,10 +186,12 @@ function renderValidation() {
   `).join("");
 }
 
-function renderDiagram() {
+async function renderDiagram() {
   const model = state.session?.structured;
   if (!model || !state.session.validation?.valid) {
+    destroyBpmnModeler();
     elements.diagramMode.textContent = "Noch kein BPMN";
+    elements.diagramCanvas.classList.remove("bpmn-active");
     elements.diagramCanvas.innerHTML = `
       <div class="empty-state">
         <strong>Wartet auf validierte Struktur</strong>
@@ -189,8 +201,105 @@ function renderDiagram() {
     return;
   }
 
-  elements.diagramMode.textContent = state.session.profile === "bpmn-light" ? "BPMN-light" : "Swimlane";
-  elements.diagramCanvas.innerHTML = renderPreview(model);
+  if (!window.BpmnJS) {
+    destroyBpmnModeler();
+    elements.diagramMode.textContent = "BPMN-Fallback";
+    elements.diagramCanvas.classList.remove("bpmn-active");
+    elements.diagramCanvas.innerHTML = renderPreviewWithNotice(model, "bpmn-js ist noch nicht geladen. Die einfache Vorschau bleibt aktiv.");
+    return;
+  }
+
+  const importKey = `${state.session.id}:${state.session.updatedAt}`;
+  if (state.bpmnImportKey === importKey && state.bpmnModeler) {
+    elements.diagramMode.textContent = state.bpmnDirty ? "BPMN bearbeitet" : "BPMN editierbar";
+    return;
+  }
+
+  const token = ++state.bpmnImportToken;
+  elements.diagramMode.textContent = "BPMN lädt";
+  elements.diagramCanvas.classList.add("bpmn-active");
+  elements.diagramCanvas.innerHTML = '<div class="bpmn-modeler" aria-label="BPMN-Editor"></div>';
+
+  try {
+    const xml = await fetchBpmnXml(state.session.id);
+    if (token !== state.bpmnImportToken) return;
+
+    const container = elements.diagramCanvas.querySelector(".bpmn-modeler");
+    const modeler = createBpmnModeler(container);
+    await modeler.importXML(xml);
+    modeler.get("canvas").zoom("fit-viewport", "auto");
+    state.bpmnModeler = modeler;
+    state.bpmnImportKey = importKey;
+    state.bpmnDirty = false;
+    elements.diagramMode.textContent = "BPMN editierbar";
+  } catch (error) {
+    if (token !== state.bpmnImportToken) return;
+    destroyBpmnModeler();
+    elements.diagramMode.textContent = "BPMN-Fallback";
+    elements.diagramCanvas.classList.remove("bpmn-active");
+    elements.diagramCanvas.innerHTML = renderPreviewWithNotice(model, `BPMN-Editor konnte nicht geladen werden: ${error.message}`);
+  }
+}
+
+function createBpmnModeler(container) {
+  destroyBpmnModeler();
+  const modeler = new window.BpmnJS({ container });
+
+  modeler.on("commandStack.changed", () => {
+    state.bpmnDirty = true;
+    elements.diagramMode.textContent = "BPMN bearbeitet";
+  });
+
+  return modeler;
+}
+
+function destroyBpmnModeler() {
+  if (state.bpmnModeler) {
+    state.bpmnModeler.destroy();
+  }
+  state.bpmnModeler = null;
+  state.bpmnImportKey = null;
+  state.bpmnDirty = false;
+}
+
+async function fetchBpmnXml(sessionId) {
+  const response = await fetch(`/api/sessions/${sessionId}/bpmn`, {
+    headers: { accept: "application/xml" }
+  });
+  const xml = await response.text();
+  if (!response.ok) {
+    throw new Error(xml || `HTTP ${response.status}`);
+  }
+  return xml;
+}
+
+async function downloadCurrentBpmn() {
+  if (!state.bpmnModeler) {
+    window.location.href = `/api/sessions/${state.session.id}/bpmn`;
+    return;
+  }
+
+  try {
+    const { xml } = await state.bpmnModeler.saveXML({ format: true });
+    downloadBlob(xml, `prozess-${state.session.id}.bpmn`, "application/bpmn20-xml;charset=utf-8");
+  } catch (error) {
+    showToast(`BPMN-XML konnte nicht exportiert werden: ${error.message}`);
+  }
+}
+
+function downloadBlob(content, filename, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderPreviewWithNotice(model, message) {
+  return `<div class="diagram-notice">${escapeHtml(message)}</div>${renderPreview(model)}`;
 }
 
 function renderPreview(model) {
@@ -248,6 +357,7 @@ function renderActions() {
   elements.validateBtn.disabled = !hasSession;
   elements.downloadBtn.disabled = !hasBpmn;
   elements.printBtn.disabled = !hasBpmn;
+  elements.pdfBtn.disabled = !hasBpmn;
 }
 
 function renderSystem() {

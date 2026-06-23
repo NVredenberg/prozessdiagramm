@@ -45,6 +45,15 @@ test("API creates, validates and exports a process session", async (t) => {
   const printable = await fetch(`${baseUrl}/api/sessions/${created.id}/export.html`);
   assert.equal(printable.ok, true);
   assert.match(await printable.text(), /Prozessmodell/);
+
+  const pdf = await fetch(`${baseUrl}/api/sessions/${created.id}/export.pdf`);
+  assert.ok([200, 503].includes(pdf.status));
+  if (pdf.status === 200) {
+    assert.match(pdf.headers.get("content-type"), /application\/pdf/);
+    assert.ok((await pdf.arrayBuffer()).byteLength > 1000);
+  } else {
+    assert.match(await pdf.text(), /PDF-Export/);
+  }
 });
 
 async function getJson(url) {

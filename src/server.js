@@ -1,14 +1,22 @@
 const http = require("node:http");
+const path = require("node:path");
 const { config } = require("./config");
-const { sendJson, sendText, readJsonBody, sendStatic } = require("./lib/http");
+const { sendJson, sendText, sendBuffer, readJsonBody, sendStatic, sendFile } = require("./lib/http");
 const { createStorage } = require("./lib/storage");
 const { createSession, addUserMessage, analyzeSession, buildStructuredProcess } = require("./lib/processState");
 const { validateStructuredProcess } = require("./lib/validator");
-const { generateBpmnXml } = require("./lib/bpmn");
+const { generateBpmnXmlWithLayout } = require("./lib/bpmnLayout");
 const { checkOllama } = require("./lib/ollama");
 const { renderExportHtml } = require("./lib/exportHtml");
+const { renderSessionPdf } = require("./lib/pdfExport");
 
 const storage = createStorage(config.dataDir);
+const vendorAssets = new Map([
+  ["/vendor/bpmn-js/bpmn-modeler.production.min.js", ["bpmn-js", "dist", "bpmn-modeler.production.min.js", "text/javascript; charset=utf-8"]],
+  ["/vendor/bpmn-js/diagram-js.css", ["bpmn-js", "dist", "assets", "diagram-js.css", "text/css; charset=utf-8"]],
+  ["/vendor/bpmn-js/bpmn-js.css", ["bpmn-js", "dist", "assets", "bpmn-js.css", "text/css; charset=utf-8"]],
+  ["/vendor/bpmn-js/bpmn-embedded.css", ["bpmn-js", "dist", "assets", "bpmn-font", "css", "bpmn-embedded.css", "text/css; charset=utf-8"]]
+]);
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -72,7 +80,7 @@ async function route(req, res) {
       profile: body.profile,
       maxQuestions: config.maxQuestions
     });
-    finalizeSessionIfReady(session);
+    await finalizeSessionIfReady(session);
     const state = analyzeSession(session);
     const saved = storage.writeSession(session);
     sendJson(res, 201, toClientSession(saved, state));
@@ -97,7 +105,7 @@ async function route(req, res) {
       }
       const session = storage.readSession(id);
       const updated = addUserMessage(session, body.content);
-      finalizeSessionIfReady(updated);
+      await finalizeSessionIfReady(updated);
       const saved = storage.writeSession(updated);
       sendJson(res, 200, toClientSession(saved, analyzeSession(saved)));
       return;
@@ -109,7 +117,7 @@ async function route(req, res) {
       const validation = validateStructuredProcess(structured);
       session.structured = structured;
       session.validation = validation;
-      session.bpmnXml = validation.valid ? generateBpmnXml(structured) : null;
+      session.bpmnXml = validation.valid ? await generateBpmnXmlWithLayout(structured) : null;
       session.status = validation.valid ? "diagram-ready" : "needs-clarification";
       const saved = storage.writeSession(session);
       sendJson(res, 200, toClientSession(saved, analyzeSession(saved)));
@@ -139,6 +147,24 @@ async function route(req, res) {
       sendText(res, 200, renderExportHtml(session), "text/html; charset=utf-8");
       return;
     }
+
+    if (req.method === "GET" && action === "export.pdf") {
+      const session = storage.readSession(id);
+      if (!session.structured || !session.validation?.valid) {
+        const err = new Error("Der PDF-Export ist erst nach erfolgreicher Validierung verfuegbar.");
+        err.statusCode = 404;
+        throw err;
+      }
+      const pdf = await renderSessionPdf(session);
+      sendBuffer(res, 200, pdf, "application/pdf", {
+        "content-disposition": `attachment; filename="prozess-${id}.pdf"`
+      });
+      return;
+    }
+  }
+
+  if (req.method === "GET" && sendVendorAsset(url.pathname, res)) {
+    return;
   }
 
   if (req.method === "GET" && sendStatic(req.url, res, config.publicDir)) {
@@ -166,7 +192,7 @@ function toClientSession(session, state) {
   };
 }
 
-function finalizeSessionIfReady(session) {
+async function finalizeSessionIfReady(session) {
   const state = analyzeSession(session);
   if (state.missingRequired.length > 0) return session;
 
@@ -174,9 +200,25 @@ function finalizeSessionIfReady(session) {
   const validation = validateStructuredProcess(structured);
   session.structured = structured;
   session.validation = validation;
-  session.bpmnXml = validation.valid ? generateBpmnXml(structured) : null;
+  session.bpmnXml = validation.valid ? await generateBpmnXmlWithLayout(structured) : null;
   session.status = validation.valid ? "diagram-ready" : "needs-clarification";
   return session;
+}
+
+function sendVendorAsset(pathname, res) {
+  const asset = vendorAssets.get(pathname);
+  if (!asset) return false;
+
+  const contentType = asset.at(-1);
+  const filePath = path.join(config.rootDir, "node_modules", ...asset.slice(0, -1));
+  if (sendFile(res, filePath, contentType)) {
+    return true;
+  }
+
+  sendJson(res, 404, {
+    error: "Vendor asset not found. Bitte fuehre npm install aus."
+  });
+  return true;
 }
 
 if (require.main === module) {

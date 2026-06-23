@@ -29,6 +29,16 @@ function sendText(res, statusCode, body, contentType = "text/plain; charset=utf-
   res.end(body);
 }
 
+function sendBuffer(res, statusCode, body, contentType = "application/octet-stream", headers = {}) {
+  res.writeHead(statusCode, {
+    "content-type": contentType,
+    "content-length": body.length,
+    "cache-control": "no-store",
+    ...headers
+  });
+  res.end(body);
+}
+
 async function readJsonBody(req, limitBytes = 1_000_000) {
   let size = 0;
   const chunks = [];
@@ -81,4 +91,18 @@ function sendStatic(reqUrl, res, publicDir) {
   return true;
 }
 
-module.exports = { sendJson, sendText, readJsonBody, sendStatic };
+function sendFile(res, filePath, contentType) {
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    return false;
+  }
+
+  const extension = path.extname(filePath).toLowerCase();
+  res.writeHead(200, {
+    "content-type": contentType || MIME_TYPES[extension] || "application/octet-stream",
+    "cache-control": "public, max-age=86400"
+  });
+  fs.createReadStream(filePath).pipe(res);
+  return true;
+}
+
+module.exports = { sendJson, sendText, sendBuffer, readJsonBody, sendStatic, sendFile };

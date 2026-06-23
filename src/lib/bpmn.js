@@ -1,4 +1,4 @@
-function generateBpmnXml(processModel) {
+function generateBpmnXml(processModel, options = {}) {
   const safeId = sanitizeId(processModel.id || "process");
   const roles = processModel.roles.length > 0 ? processModel.roles : ["Prozess"];
   const nodes = buildNodes(processModel, roles);
@@ -28,7 +28,8 @@ function generateBpmnXml(processModel) {
     "  </bpmn:process>"
   ].join("\n");
 
-  const diagramXml = renderDiagram(safeId, roles, nodes, flows);
+  const includeDiagram = options.includeDiagram !== false;
+  const diagramXml = includeDiagram ? renderDiagram(safeId, roles, nodes, flows) : null;
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -36,7 +37,7 @@ function generateBpmnXml(processModel) {
     processXml,
     diagramXml,
     "</bpmn:definitions>"
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function buildNodes(processModel, roles) {

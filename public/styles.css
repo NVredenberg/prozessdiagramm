@@ -414,6 +414,34 @@ textarea:focus {
   padding: 18px;
 }
 
+.diagram-canvas.bpmn-active {
+  min-height: 560px;
+  padding: 0;
+  background: #fff;
+  position: relative;
+}
+
+.bpmn-modeler {
+  min-width: 920px;
+  min-height: 560px;
+  height: 100%;
+}
+
+.bpmn-modeler .djs-container {
+  min-height: 560px;
+}
+
+.diagram-notice {
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+  background: var(--amber-soft);
+  color: #7b510f;
+  padding: 9px 11px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .empty-state {
   min-height: 360px;
   display: grid;

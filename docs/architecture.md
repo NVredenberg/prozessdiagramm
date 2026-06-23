@@ -6,8 +6,8 @@ Die Anwendung läuft als eigener Docker-Service im Schulnetz und nutzt die beste
 
 ## Laufzeitkomponenten
 
-- **Frontend:** statische HTML/CSS/JS-Oberfläche mit Prozessformular, geführtem Chat, Validierung, Diagramm-Vorschau und Export-Aktionen
-- **Backend:** Node.js-HTTP-Server mit Session-API, Healthcheck, Validierung, BPMN-Generierung und statischer Dateiauslieferung
+- **Frontend:** statische HTML/CSS/JS-Oberfläche mit Prozessformular, geführtem Chat, Validierung, bpmn-js-Modeler und Export-Aktionen
+- **Backend:** Node.js-HTTP-Server mit Session-API, Healthcheck, Validierung, BPMN-Generierung, bpmn-auto-layout, PDF-Rendering und statischer Dateiauslieferung
 - **Persistenz:** Dateibasierte JSON-Sessions im Datenverzeichnis; austauschbar gegen SQLite in der nächsten Stufe
 - **KI-Anbindung:** Ollama-Client mit Healthcheck und vorbereiteten Schaltern für Chat- und Strukturierungsaufrufe
 - **Deployment:** Docker-Compose-Service im externen Docker-Netzwerk der Schul-KI-Dienste
@@ -22,6 +22,7 @@ Die Anwendung läuft als eigener Docker-Service im Schulnetz und nutzt die beste
 - `POST /api/sessions/:id/structure`: Struktur validieren und bei Erfolg BPMN erzeugen
 - `GET /api/sessions/:id/bpmn`: BPMN-XML herunterladen
 - `GET /api/sessions/:id/export.html`: druckbare Prozessmodellseite
+- `GET /api/sessions/:id/export.pdf`: Puppeteer-basierter PDF-Export der Prozessmodellseite
 
 ## Datenfluss
 
@@ -29,11 +30,11 @@ Die Anwendung läuft als eigener Docker-Service im Schulnetz und nutzt die beste
 2. Die Anwendung erkennt befüllte und fehlende Pflichtblöcke.
 3. Fehlende Blöcke werden über maximal `MAX_QUESTIONS` Rückfragen abgefragt.
 4. Die Struktur wird validiert.
-5. Nur bei fehlerfreier Validierung wird BPMN-XML erzeugt und gespeichert.
-6. Das Frontend zeigt eine Vorschau und bietet XML- sowie Druckexport an.
+5. Nur bei fehlerfreier Validierung wird BPMN-XML erzeugt, automatisch layoutet und gespeichert.
+6. Das Frontend importiert das BPMN in den grafisch editierbaren Modeler und bietet XML-, HTML- sowie PDF-Export an.
 
 ## Bewusste MVP-Grenzen
 
-- Der grafische Editor ist als Vorschau mit Bearbeitungsanschluss vorbereitet, aber noch nicht `bpmn-js`-basiert.
-- Der PDF-Export ist als druckbare HTML-Seite umgesetzt; Puppeteer kann später ohne Änderung des Datenmodells ergänzt werden.
-- SQLite ist in der Roadmap vorgesehen. Das MVP nutzt JSON-Dateien, damit es ohne Paketinstallation sofort lauffähig bleibt.
+- Änderungen im bpmn-js-Modeler können als BPMN-XML exportiert werden; eine serverseitige Versionsspeicherung ist noch nicht enthalten.
+- Der PDF-Export benötigt eine lauffähige Puppeteer/Chromium-Installation im Zielsystem.
+- SQLite ist in der Roadmap vorgesehen. Das MVP nutzt weiterhin JSON-Dateien für portable lokale Sessions.
