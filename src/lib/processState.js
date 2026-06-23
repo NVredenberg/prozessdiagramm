@@ -49,6 +49,63 @@ const RESPONSIBILITY_HINTS = [
   "it"
 ];
 
+const RESPONSIBILITY_ACTIONS = [
+  "bearbeitet",
+  "dokumentiert",
+  "entscheidet",
+  "erstellt",
+  "fordert",
+  "genehmigt",
+  "informiert",
+  "klaert",
+  "klÃ¤rt",
+  "kontrolliert",
+  "leitet",
+  "meldet",
+  "prueft",
+  "prÃ¼ft",
+  "sendet",
+  "speichert",
+  "uebernimmt",
+  "Ã¼bernimmt"
+];
+
+const EXTRA_RESPONSIBILITY_HINTS = [
+  "abteilung",
+  "antragsteller",
+  "antragstellerin",
+  "ausbilderin",
+  "bereich",
+  "dienstleister",
+  "kunde",
+  "kundin",
+  "koordination",
+  "leitung",
+  "mitarbeiter",
+  "mitarbeiterin",
+  "sachbearbeitung",
+  "team"
+];
+
+const IGNORED_ROLE_LABELS = new Set([
+  "der",
+  "die",
+  "das",
+  "den",
+  "dem",
+  "ein",
+  "eine",
+  "prozess",
+  "start",
+  "ende",
+  "danach",
+  "zuerst",
+  "anschliessend",
+  "anschlieÃŸend",
+  "falls",
+  "wenn"
+]);
+
 function createSession({ sourceText, profile, maxQuestions }) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -185,9 +242,7 @@ function extractSignals(text, profile = "swimlane") {
   const exceptions = sentences.filter((sentence) =>
     /(sonderfall|ausnahme|fehlt|unvollständig|unvollstaendig|eskal|problem|nachreichen|rückfrage|rueckfrage)/i.test(sentence)
   );
-  const responsibilities = sentences.filter((sentence) =>
-    /(verantwort|zuständig|zustaendig|durch|von der|vom|lehrkraft|sekretariat|schulleitung|verwaltung|admin|it)/i.test(sentence)
-  );
+  const responsibilities = sentences.filter(hasResponsibilitySignal);
 
   const flow = sentences.filter((sentence) =>
     /(danach|anschließend|anschliessend|zuerst|prüft|prueft|erstellt|sendet|informiert|speichert|legt|bearbeitet|dokumentiert|leitet|freigibt|freigabe|nimmt|gibt|meldet)/i.test(sentence)
@@ -236,20 +291,41 @@ function normalizeSteps(value) {
 function extractRoles(text, responsibilitySentences = []) {
   const source = `${text}\n${normalizeSteps(responsibilitySentences).join("\n")}`;
   const found = new Set();
+  const addRole = (value) => {
+    const cleaned = cleanRole(value);
+    if (cleaned && isLikelyRole(cleaned)) {
+      found.add(cleaned);
+    }
+  };
 
-  for (const hint of RESPONSIBILITY_HINTS) {
+  for (const hint of [...RESPONSIBILITY_HINTS, ...EXTRA_RESPONSIBILITY_HINTS]) {
     const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(hint)}($|[^\\p{L}\\p{N}])`, "iu");
     if (pattern.test(source)) {
-      found.add(capitalizeRole(hint));
+      addRole(capitalizeRole(hint));
     }
   }
 
-  const explicitMatches = source.matchAll(/(?:rolle|rollen|verantwortlich|zuständig|zustaendig)\s*[:=]\s*([^\n.]+)/gi);
+  const explicitMatches = source.matchAll(/(?:rolle|rollen|verantwortlich|zuständig|zustaendig|aufgabe|aufgaben)\s*[:=]\s*([^\n.]+)/gi);
   for (const match of explicitMatches) {
     for (const role of match[1].split(/,|\/| und /i)) {
-      const cleaned = cleanRole(role);
-      if (cleaned) found.add(cleaned);
+      addRole(role);
     }
+  }
+
+  const colonMatches = source.matchAll(/(?:^|[.;\n]\s*)([^:.;\n]{2,45})\s*:\s*[^.;\n]+/gu);
+  for (const match of colonMatches) {
+    for (const role of match[1].split(/,|\/| und /i)) {
+      addRole(role);
+    }
+  }
+
+  const actionPattern = RESPONSIBILITY_ACTIONS.map(escapeRegExp).join("|");
+  const actorActionPattern = new RegExp(
+    `(?:^|[.;\\n]\\s*)(?:der|die|das|den|dem|eine|ein)?\\s*([\\p{Lu}][\\p{L}.-]*(?:\\s+[\\p{Lu}][\\p{L}.-]*){0,2})\\s+(?:${actionPattern})\\b`,
+    "gu"
+  );
+  for (const match of source.matchAll(actorActionPattern)) {
+    addRole(match[1]);
   }
 
   return Array.from(found).slice(0, 8);
@@ -276,9 +352,42 @@ function cleanText(value) {
 function cleanRole(value) {
   const cleaned = cleanText(value)
     .replace(/^(die|der|das|den|dem|eine|ein)\s+/i, "")
+    .replace(new RegExp(`\\s+(?:${RESPONSIBILITY_ACTIONS.map(escapeRegExp).join("|")})\\b.*$`, "i"), "")
+    .replace(/\s*\([^)]*\)\s*$/g, "")
     .replace(/[.,:;]+$/g, "");
   if (!cleaned || cleaned.length > 40) return "";
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+function hasResponsibilitySignal(sentence) {
+  const text = cleanText(sentence);
+  if (!text) return false;
+
+  if (/(verantwort|zuständig|zustaendig|rolle|rollen|aufgabe|aufgaben|durch|von der|vom)/i.test(text)) {
+    return true;
+  }
+
+  if (/^[^:]{2,45}:\s*\S/u.test(text)) {
+    return true;
+  }
+
+  const hints = [...RESPONSIBILITY_HINTS, ...EXTRA_RESPONSIBILITY_HINTS];
+  if (hints.some((hint) => new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(hint)}($|[^\\p{L}\\p{N}])`, "iu").test(text))) {
+    return true;
+  }
+
+  const actionPattern = RESPONSIBILITY_ACTIONS.map(escapeRegExp).join("|");
+  return new RegExp(
+    `(?:^|[.;\\n]\\s*)(?:der|die|das|den|dem|eine|ein)?\\s*[\\p{Lu}][\\p{L}.-]*(?:\\s+[\\p{Lu}][\\p{L}.-]*){0,2}\\s+(?:${actionPattern})\\b`,
+    "u"
+  ).test(text);
+}
+
+function isLikelyRole(value) {
+  const normalized = cleanText(value).toLowerCase();
+  if (!normalized || IGNORED_ROLE_LABELS.has(normalized)) return false;
+  if (/^(und|oder|sowie)\b/i.test(normalized)) return false;
+  return true;
 }
 
 function escapeRegExp(value) {
@@ -303,5 +412,6 @@ module.exports = {
   buildStructuredProcess,
   extractSignals,
   extractRoles,
-  normalizeSteps
+  normalizeSteps,
+  hasResponsibilitySignal
 };

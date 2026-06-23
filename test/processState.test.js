@@ -1,6 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createSession, addUserMessage, buildStructuredProcess, analyzeSession } = require("../src/lib/processState");
+const {
+  createSession,
+  addUserMessage,
+  buildStructuredProcess,
+  analyzeSession,
+  extractRoles,
+  hasResponsibilitySignal
+} = require("../src/lib/processState");
 
 test("session tracks required process blocks", () => {
   const session = createSession({
@@ -34,4 +41,22 @@ test("structured process assigns detected roles", () => {
   assert.equal(model.decisions.some((decision) => decision.includes("beginnt")), false);
   assert.ok(model.steps.length >= 2);
   assert.equal(model.endStates.length > 0, true);
+});
+
+test("responsibility answers with names and tasks are accepted", () => {
+  const session = createSession({
+    profile: "swimlane",
+    maxQuestions: 10,
+    sourceText: "Der Prozess beginnt mit einem Antrag. Zuerst wird der Antrag erfasst. Danach wird die Freigabe vorbereitet. Der Prozess endet mit der dokumentierten Entscheidung."
+  });
+
+  addUserMessage(session, "Herr Mueller: prueft den Antrag; Frau Schmidt: genehmigt die Freigabe.");
+
+  const state = analyzeSession(session);
+  assert.equal(state.missingRequired.includes("responsibilities"), false);
+  assert.equal(hasResponsibilitySignal("Herr Mueller: prueft den Antrag"), true);
+  assert.deepEqual(extractRoles("", ["Herr Mueller: prueft den Antrag", "Frau Schmidt: genehmigt die Freigabe"]), [
+    "Herr Mueller",
+    "Frau Schmidt"
+  ]);
 });

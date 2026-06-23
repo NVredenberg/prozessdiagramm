@@ -19,6 +19,9 @@ test("API creates, validates and exports a process session", async (t) => {
   const health = await getJson(`${baseUrl}/health`);
   assert.equal(health.ok, true);
 
+  const favicon = await fetch(`${baseUrl}/favicon.ico`);
+  assert.equal(favicon.status, 204);
+
   const created = await postJson(`${baseUrl}/api/sessions`, {
     profile: "bpmn-light",
     sourceText: "Der Prozess beginnt, wenn ein Antrag im Sekretariat eingeht. Zuerst prüft das Sekretariat die Unterlagen. Danach leitet das Sekretariat den Antrag an die Schulleitung weiter. Die Schulleitung prüft die Freigabe und genehmigt oder lehnt ab. Bei fehlenden Unterlagen fordert das Sekretariat eine Rückfrage an. Der Prozess endet mit einer dokumentierten Entscheidung. Verantwortlich: Sekretariat, Schulleitung."

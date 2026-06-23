@@ -43,6 +43,12 @@ async function route(req, res) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/favicon.ico") {
+    res.writeHead(204, { "cache-control": "public, max-age=86400" });
+    res.end();
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/config") {
     sendJson(res, 200, {
       maxQuestions: config.maxQuestions,

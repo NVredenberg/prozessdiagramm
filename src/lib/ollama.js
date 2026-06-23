@@ -25,11 +25,34 @@ async function checkOllama({ ollamaUrl, timeoutMs = 1200 }) {
     return {
       ok: false,
       latencyMs: Date.now() - started,
-      error: error.name === "AbortError" ? "Ollama-Healthcheck hat das Zeitlimit erreicht." : error.message
+      error: describeOllamaError(error, ollamaUrl)
     };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function describeOllamaError(error, ollamaUrl) {
+  if (error.name === "AbortError") {
+    return "Ollama-Healthcheck hat das Zeitlimit erreicht.";
+  }
+
+  const details = [
+    error.code,
+    error.cause?.code,
+    error.cause?.message,
+    error.message
+  ].filter(Boolean).join(" ");
+
+  if (/ECONNREFUSED|fetch failed|connection refused/i.test(details)) {
+    return `Ollama-Dienst nicht erreichbar (${ollamaUrl}).`;
+  }
+
+  if (/ENOTFOUND|getaddrinfo|EAI_AGAIN/i.test(details)) {
+    return `Ollama-Host nicht gefunden (${ollamaUrl}).`;
+  }
+
+  return error.message || "Ollama-Status konnte nicht ermittelt werden.";
 }
 
 async function ollamaChat({ ollamaUrl, model, messages, format, timeoutMs = 45_000 }) {
@@ -58,4 +81,4 @@ async function ollamaChat({ ollamaUrl, model, messages, format, timeoutMs = 45_0
   }
 }
 
-module.exports = { checkOllama, ollamaChat };
+module.exports = { checkOllama, ollamaChat, describeOllamaError };
