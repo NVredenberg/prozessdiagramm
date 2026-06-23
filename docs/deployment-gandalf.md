@@ -55,39 +55,37 @@ Installiert und lauffaehig:
 - Git
 - Docker Engine
 - Docker Compose Plugin (`docker compose`)
-- Ollama, entweder direkt auf dem Host oder als Container
+- Ollama direkt auf dem Host Gandalf
 - Die benoetigten Ollama-Modelle
-
-Docker-Netzwerk fuer Anwendung und Ollama anlegen, falls es noch nicht existiert:
-
-```bash
-docker network create schul-ki
-```
-
-Wenn das Netzwerk bereits existiert, meldet Docker nur, dass es schon vorhanden ist. Das ist unkritisch.
 
 ## Ollama vorbereiten
 
-Der Prozessmodellierungsdienst erwartet Ollama standardmaessig unter:
+Ollama laeuft direkt auf dem Host Gandalf. Auf Gandalf sollte dieser Test erfolgreich sein:
 
-```text
-http://ollama:11434
+```bash
+curl http://127.0.0.1:11434/api/tags
 ```
 
-Dafuer muss der Ollama-Container im Docker-Netzwerk `schul-ki` erreichbar sein und den Containernamen oder Netzwerknamen `ollama` haben.
+Der Prozessmodellierungsdienst laeuft im Docker-Container und greift ueber den Docker-Hostnamen auf Ollama zu:
+
+```text
+http://host.docker.internal:11434
+```
+
+Die `docker-compose.yml` enthaelt dafuer:
+
+```yaml
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+Dadurch muss kein gemeinsames Docker-Netzwerk fuer Ollama angelegt werden.
 
 Modelle bereitstellen:
 
 ```bash
 ollama pull gemma4:12b
 ollama pull qwen2.5:14b
-```
-
-Wenn Ollama in einem Container laeuft, die Pulls im Container ausfuehren, zum Beispiel:
-
-```bash
-docker exec -it ollama ollama pull gemma4:12b
-docker exec -it ollama ollama pull qwen2.5:14b
 ```
 
 ## Erstinstallation ueber GitHub
@@ -120,7 +118,7 @@ Standardwerte aus `docker-compose.yml`:
 
 ```text
 PROCESS_MODELING_PORT=8080
-OLLAMA_URL=http://ollama:11434
+OLLAMA_URL=http://host.docker.internal:11434
 CHAT_MODEL=gemma4:12b
 EXTRACT_MODEL=qwen2.5:14b
 MAX_QUESTIONS=10
@@ -142,12 +140,6 @@ Wenn echte Modellaufrufe genutzt werden sollen:
 ```text
 ENABLE_OLLAMA_CHAT=true
 ENABLE_OLLAMA_EXTRACTION=true
-```
-
-Wenn das Docker-Netzwerk anders heisst:
-
-```bash
-export OLLAMA_DOCKER_NETWORK="name-des-netzwerks"
 ```
 
 Wenn ein anderer externer Port genutzt werden soll:
