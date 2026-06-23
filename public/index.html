@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KI-Prozessmodellierung</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="rail" aria-label="Arbeitsbereich">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">PM</div>
+        <div>
+          <strong>Prozessmodellierung</strong>
+          <span>Schulnetz</span>
+        </div>
+      </div>
+
+      <nav class="status-stack" aria-label="Pflichtbausteine">
+        <div class="rail-title">Pflichtbausteine</div>
+        <div id="blockList" class="block-list"></div>
+      </nav>
+
+      <div class="runtime">
+        <div class="rail-title">System</div>
+        <div id="systemState" class="system-state">Prüfung läuft</div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <h1>Text in Prozessmodell</h1>
+          <p id="sessionLine">Neue Session</p>
+        </div>
+        <div class="toolbar">
+          <div class="segmented" role="radiogroup" aria-label="Diagrammprofil">
+            <label><input type="radio" name="profile" value="swimlane" checked> Swimlane</label>
+            <label><input type="radio" name="profile" value="bpmn-light"> BPMN-light</label>
+          </div>
+          <button id="validateBtn" class="button secondary" type="button" disabled>Prüfen</button>
+          <button id="downloadBtn" class="button secondary" type="button" disabled>XML</button>
+          <button id="printBtn" class="button primary" type="button" disabled>Druckansicht</button>
+        </div>
+      </header>
+
+      <section class="work-grid">
+        <div class="input-panel">
+          <form id="startForm" class="process-form">
+            <label for="sourceText">Prozesstext</label>
+            <textarea id="sourceText" name="sourceText" rows="8" placeholder="Beispiel: Der Prozess beginnt, wenn ..."></textarea>
+            <button class="button primary wide" type="submit">Dialog starten</button>
+          </form>
+
+          <section class="chat-panel" aria-label="Dialog">
+            <div id="chatLog" class="chat-log"></div>
+            <form id="chatForm" class="chat-form">
+              <label class="sr-only" for="chatInput">Antwort</label>
+              <textarea id="chatInput" rows="3" placeholder="Antwort ergänzen" disabled></textarea>
+              <button class="button secondary" type="submit" disabled>Antwort senden</button>
+            </form>
+          </section>
+        </div>
+
+        <section class="model-panel" aria-label="Modell">
+          <div class="panel-head">
+            <div>
+              <h2>Validierung</h2>
+              <p id="validationSummary">Noch keine Struktur geprüft.</p>
+            </div>
+            <div id="statusPill" class="status-pill neutral">Bereit</div>
+          </div>
+
+          <div id="issues" class="issues"></div>
+
+          <div class="diagram-frame">
+            <div class="diagram-head">
+              <h2>Diagramm-Vorschau</h2>
+              <span id="diagramMode">Noch kein BPMN</span>
+            </div>
+            <div id="diagramCanvas" class="diagram-canvas">
+              <div class="empty-state">
+                <strong>Wartet auf validierte Struktur</strong>
+                <span>Start, Ablauf, Verantwortlichkeiten und Ende müssen gefüllt sein.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

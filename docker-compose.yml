@@ -1,0 +1,29 @@
+services:
+  prozessmodellierung:
+    build: .
+    container_name: prozessmodellierung
+    restart: unless-stopped
+    ports:
+      - "${PROCESS_MODELING_PORT:-8080}:8080"
+    environment:
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      DATA_DIR: "/app/data"
+      OLLAMA_URL: "${OLLAMA_URL:-http://ollama:11434}"
+      CHAT_MODEL: "${CHAT_MODEL:-gemma4:12b}"
+      EXTRACT_MODEL: "${EXTRACT_MODEL:-qwen2.5:14b}"
+      MAX_QUESTIONS: "${MAX_QUESTIONS:-10}"
+      ENABLE_OLLAMA_CHAT: "${ENABLE_OLLAMA_CHAT:-false}"
+      ENABLE_OLLAMA_EXTRACTION: "${ENABLE_OLLAMA_EXTRACTION:-false}"
+    volumes:
+      - prozessmodellierung-data:/app/data
+    networks:
+      - schul-ki
+
+volumes:
+  prozessmodellierung-data:
+
+networks:
+  schul-ki:
+    external: true
+    name: "${OLLAMA_DOCKER_NETWORK:-schul-ki}"
